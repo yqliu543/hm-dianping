@@ -19,27 +19,12 @@ import static net.sf.jsqlparser.util.validation.metadata.NamedObject.user;
 
 public class LoginInterceptor  implements HandlerInterceptor {
 
-    private StringRedisTemplate stringRedisTemplate;
-    public LoginInterceptor(StringRedisTemplate stringRedisTemplate){
-        this.stringRedisTemplate=stringRedisTemplate;
-    }
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        String token = request.getHeader("authorization");
-        if (StrUtil.isBlankIfStr(token)) {
+        if (UserHolder.getUser()==null){
             response.setStatus(401);
             return false;
         }
-        Map<Object, Object> entries = stringRedisTemplate.opsForHash().entries(RedisConstants.LOGIN_USER_KEY + token);
-
-        if (entries.isEmpty()) {
-            response.setStatus(401);
-            return false;
-        }
-        UserDTO userDTO = BeanUtil.fillBeanWithMap(entries, new UserDTO(), false);
-
-        UserHolder.saveUser((UserDTO) userDTO);
-        stringRedisTemplate.expire(RedisConstants.LOGIN_USER_KEY + token,30, TimeUnit.MINUTES);
         return true;
     }
 
