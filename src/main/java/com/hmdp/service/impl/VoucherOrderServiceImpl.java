@@ -10,6 +10,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -35,6 +37,8 @@ private StringRedisTemplate stringRedisTemplate;
     private ISeckillVoucherService iSeckillVoucherService;
     @Autowired
     private RedisIdWorker redisIdWorker;
+    @Autowired
+    private RedissonClient redissonClient;
 
     @Override
     public Result seckillVoucher(Long voucherId) {
@@ -49,8 +53,9 @@ private StringRedisTemplate stringRedisTemplate;
             return Result.fail("库存不足");
         }
         Long id = UserHolder.getUser().getId();
-        SimpleRedisLock lock = new SimpleRedisLock("order:" + id, stringRedisTemplate);
-        boolean islock = lock.tryLock(1000);
+        //SimpleRedisLock lock = new SimpleRedisLock("order:" + id, stringRedisTemplate);
+        RLock lock = redissonClient.getLock("lock:order:" + id);
+        boolean islock = lock.tryLock();
         if (!islock){
             return Result.fail("不允许重复下单");
         }
@@ -59,7 +64,7 @@ private StringRedisTemplate stringRedisTemplate;
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId, id);
         } finally {
-            lock.unLock();
+            lock.unlock();
         }
 
     }
